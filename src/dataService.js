@@ -1,16 +1,15 @@
-let cachedData = null;
-
 const getCachedData = async () => {
     if (cachedData) return cachedData;
     try {
-        console.log("Fetching static data snapshot...");
-        const response = await fetch('./data.json');
-        if (!response.ok) throw new Error('Network response was not ok');
+        console.log("Loading AOI Data Snapshot...");
+        // Add cache buster to ensure fresh data
+        const response = await fetch('./data.json?cb=' + Date.now());
+        if (!response.ok) throw new Error('Failed to load data.json');
         cachedData = await response.json();
-        console.log("Data snapshot loaded:", cachedData.records?.length, "records");
+        console.log("Data loaded successfully:", cachedData.records?.length, "records");
         return cachedData;
     } catch (err) {
-        console.error("Failed to load static data:", err);
+        console.error("CRITICAL: Data Snapshop Load Failed:", err);
         return { records: [], throughput: [] };
     }
 };
@@ -21,31 +20,27 @@ export const fetchDashboardData = async (filter, selectedDate, selectedShift) =>
         return await window.electronAPI.getDashboardData({ ...filter, date: selectedDate, shift: selectedShift });
     }
 
-    // If running in Browser (External Static Site)
+    // Browser Mode
     try {
         const allData = await getCachedData();
-
-        // Basic filtering logic for the static demo
-        // This simulates the complex SQL logic from database.cjs
         const records = allData.records || [];
         const throughput = allData.throughput || [];
+
+        // Determine which date to use (Today or fallback to latest available)
+        let finalDate = selectedDate;
+        const availableDates = [...new Set(records.map(r => r.created_at.slice(0, 10)))].sort();
+
+        if (!records.some(r => r.created_at.startsWith(selectedDate))) {
+            console.warn(`No data for ${selectedDate}, falling back to latest available: ${availableDates[availableDates.length - 1]}`);
+            finalDate = availableDates[availableDates.length - 1];
+        }
 
         let filteredRows = records;
         let filteredTp = throughput;
 
-        // Apply date filter
-        let finalDate = selectedDate;
-        if (selectedDate && !filteredRows.some(r => r.created_at.startsWith(selectedDate))) {
-            // Find the latest available date in the records
-            const allDates = [...new Set(records.map(r => r.created_at.slice(0, 10)))].sort();
-            if (allDates.length > 0) {
-                finalDate = allDates[allDates.length - 1];
-            }
-        }
-
         if (finalDate) {
-            filteredRows = filteredRows.filter(r => r.created_at.startsWith(finalDate));
-            filteredTp = filteredTp.filter(t => t.date === finalDate);
+            filteredRows = records.filter(r => r.created_at.startsWith(finalDate));
+            filteredTp = throughput.filter(t => t.date === finalDate);
         }
 
         // Apply shift filter (simple approximation)
