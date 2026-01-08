@@ -52,20 +52,19 @@ const Dashboard = ({ filter }) => {
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
-            const queryFilter = { ...filter, date: selectedDate, shift: selectedShift };
-            const result = await window.electronAPI.getDashboardData(queryFilter);
+            const result = await fetchDashboardData(filter, selectedDate, selectedShift);
             if (result && !result.error) {
                 setData(result);
                 setSelectedHour(null);
             }
 
             if (filter.type === 'analysis' && filter.mode === 'comparison') {
-                const compResult = await window.electronAPI.getComparisonData(filter.area, selectedDate);
+                const compResult = await fetchComparisonData(filter.area, selectedDate);
                 setComparisonData(compResult);
             }
 
             if (filter.type === 'analysis' && filter.mode === 'heatmap') {
-                const heatResult = await window.electronAPI.getHeatmapData(filter.area, selectedDate);
+                const heatResult = await fetchHeatmapData(filter.area, selectedDate);
                 setHeatmapData(heatResult);
             }
         } catch (err) {
@@ -84,7 +83,9 @@ const Dashboard = ({ filter }) => {
     const handleSync = async () => {
         setSyncing(true);
         try {
-            await window.electronAPI.manualSync();
+            if (window.electronAPI?.manualSync) {
+                await window.electronAPI.manualSync();
+            }
             await fetchData();
         } catch (err) { console.error(err); }
         finally { setSyncing(false); }

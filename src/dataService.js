@@ -1,3 +1,20 @@
+let cachedData = null;
+
+const getCachedData = async () => {
+    if (cachedData) return cachedData;
+    try {
+        console.log("Fetching static data snapshot...");
+        const response = await fetch('./data.json');
+        if (!response.ok) throw new Error('Network response was not ok');
+        cachedData = await response.json();
+        console.log("Data snapshot loaded:", cachedData.records?.length, "records");
+        return cachedData;
+    } catch (err) {
+        console.error("Failed to load static data:", err);
+        return { records: [], throughput: [] };
+    }
+};
+
 export const fetchDashboardData = async (filter, selectedDate, selectedShift) => {
     // If running in Electron
     if (window.electronAPI && window.electronAPI.getDashboardData) {
@@ -6,8 +23,7 @@ export const fetchDashboardData = async (filter, selectedDate, selectedShift) =>
 
     // If running in Browser (External Static Site)
     try {
-        const response = await fetch('./data.json');
-        const allData = await response.json();
+        const allData = await getCachedData();
 
         // Basic filtering logic for the static demo
         // This simulates the complex SQL logic from database.cjs
@@ -105,7 +121,9 @@ export const fetchComparisonData = async (area, date) => {
         return await window.electronAPI.getComparisonData(area, date);
     }
     // Static fallback for comparison
-    return {}; // Simplified for now
+    const { records } = await getCachedData();
+    // Simplified comparison logic
+    return { records: records.slice(0, 100) }; // Placeholder
 };
 
 export const fetchHeatmapData = async (area, date) => {
@@ -113,5 +131,6 @@ export const fetchHeatmapData = async (area, date) => {
         return await window.electronAPI.getHeatmapData(area, date);
     }
     // Static fallback for heatmap
-    return { machines: [], defects: [], matrix: {} };
+    const { records } = await getCachedData();
+    return { machines: [], defects: [], matrix: {}, records: records.slice(0, 500) };
 };
