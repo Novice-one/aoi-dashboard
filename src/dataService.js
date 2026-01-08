@@ -18,9 +18,18 @@ export const fetchDashboardData = async (filter, selectedDate, selectedShift) =>
         let filteredTp = throughput;
 
         // Apply date filter
-        if (selectedDate) {
-            filteredRows = filteredRows.filter(r => r.created_at.startsWith(selectedDate));
-            filteredTp = filteredTp.filter(t => t.date === selectedDate);
+        let finalDate = selectedDate;
+        if (selectedDate && !filteredRows.some(r => r.created_at.startsWith(selectedDate))) {
+            // Find the latest available date in the records
+            const allDates = [...new Set(records.map(r => r.created_at.slice(0, 10)))].sort();
+            if (allDates.length > 0) {
+                finalDate = allDates[allDates.length - 1];
+            }
+        }
+
+        if (finalDate) {
+            filteredRows = filteredRows.filter(r => r.created_at.startsWith(finalDate));
+            filteredTp = filteredTp.filter(t => t.date === finalDate);
         }
 
         // Apply shift filter (simple approximation)
